@@ -17,9 +17,11 @@ public class FoolNLTK {
     private static LexicalAnalyzer defaultLexicalAnalyzer = null;
 
     private static TFPredictor createPredictor(String name, int classNum) throws IOException {
-        InputStream inputStream = FoolNLTK.class.getResourceAsStream(name);
-        byte[] segb = IOUtils.toByteArray(inputStream);
-        TFPredictor model = new TFPredictor(segb, classNum);
+        TFPredictor model;
+		try (InputStream inputStream = FoolNLTK.class.getResourceAsStream(name)) {
+			byte[] segb = IOUtils.toByteArray(inputStream);
+			model = new TFPredictor(segb, classNum);
+		} 
         return model;
     }
 
@@ -29,8 +31,7 @@ public class FoolNLTK {
         }
 
 //        LexicalAnalyzer lexicalAnalyzer = null;
-        try {
-            InputStream mapIn = FoolNLTK.class.getResourceAsStream("/nmodels/all_map.json");
+        try(InputStream mapIn = FoolNLTK.class.getResourceAsStream("/nmodels/all_map.json")) {
             Vocab vocab = new Vocab(mapIn);
             TFPredictor segModel = createPredictor("/nmodels/seg.pb", vocab.getSegLabelNum());
             TFPredictor posModel = createPredictor("/nmodels/pos.pb", vocab.getPosLabelNum());

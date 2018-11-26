@@ -87,35 +87,38 @@ public class TFPredictor {
                 maxSentLength = s;
             }
         }
+        
+        Tensor inputx = null;
+		Tensor lengths = null;
+		Tensor logits = null;
+        try {
+			inputx = TFUtil.createTensor(sents, maxSentLength);
+			lengths = Tensor.create(sentLengths);
+			logits = session.runner().feed("char_inputs", inputx).feed("dropout", dropT).feed("lengths", lengths)
+					.fetch("project/logits").run().get(0);
+			if (tranValue == null) {
+				tranValue = new float[numClass + 1][numClass + 1];
+				try (Tensor trans = session.runner().feed("char_inputs", inputx).feed("dropout", dropT)
+						.feed("lengths", lengths).fetch("crf_loss/transitions").run().get(0)) {
+					trans.copyTo(tranValue);
+				}
 
-        Tensor inputx = TFUtil.createTensor(sents, maxSentLength);
-        Tensor lengths = Tensor.create(sentLengths);
-        Tensor logits = session.runner()
-                .feed("char_inputs", inputx)
-                .feed("dropout", dropT)
-                .feed("lengths", lengths)
-                .fetch("project/logits").run().get(0);
-
-        if (tranValue == null){
-            tranValue = new float[numClass + 1][numClass + 1];
-            Tensor trans = session.runner()
-                    .feed("char_inputs", inputx)
-                    .feed("dropout", dropT)
-                    .feed("lengths", lengths)
-                    .fetch("crf_loss/transitions").run().get(0);
-            trans.copyTo(tranValue);
-        }
-
-
-        float[][][] flog = new float[sentLength][maxSentLength][this.numClass];
-
-        logits.copyTo(flog);
-
-        for (int i = 0; i < flog.length; i++) {
-            List<Integer> sentPath = decode(flog[i], tranValue, sentLengths[i]);
-            path.add(sentPath);
-        }
-        return path;
+			}
+			float[][][] flog = new float[sentLength][maxSentLength][this.numClass];
+			logits.copyTo(flog);
+			for (int i = 0; i < flog.length; i++) {
+				List<Integer> sentPath = decode(flog[i], tranValue, sentLengths[i]);
+				path.add(sentPath);
+			} 
+		} finally {
+			if (inputx != null) 
+				inputx.close();
+			if (lengths != null)
+				lengths.close();
+			if (logits != null)
+				logits.close();
+		}
+		return path;
     }
 
     public List<Integer> decode(float[][] logits, float[][] trans, int sentLength) {
